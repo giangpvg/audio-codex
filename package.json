@@ -1,0 +1,189 @@
+{
+  "name": "codex-hoaimy",
+  "displayName": "Giọng Việt cho Codex",
+  "description": "Tự đọc phản hồi Codex bằng giọng nữ Hoài Mỹ. Chỉnh tốc độ, cao độ, âm lượng ngay trong VS Code.",
+  "version": "0.1.0",
+  "publisher": "local-tools",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "codex",
+    "vietnamese",
+    "tts",
+    "hoaimy",
+    "accessibility"
+  ],
+  "main": "./dist/extension.js",
+  "extensionKind": [
+    "ui"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "capabilities": {
+    "virtualWorkspaces": false,
+    "untrustedWorkspaces": {
+      "supported": false
+    }
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexHoaimy.open",
+        "title": "Giọng Việt: Mở bảng điều khiển"
+      },
+      {
+        "command": "codexHoaimy.toggle",
+        "title": "Giọng Việt: Bật/tắt tự đọc Codex"
+      },
+      {
+        "command": "codexHoaimy.test",
+        "title": "Giọng Việt: Nghe thử giọng"
+      },
+      {
+        "command": "codexHoaimy.stop",
+        "title": "Giọng Việt: Dừng đọc"
+      },
+      {
+        "command": "codexHoaimy.replay",
+        "title": "Giọng Việt: Đọc lại phản hồi gần nhất"
+      },
+      {
+        "command": "codexHoaimy.readSelection",
+        "title": "Giọng Việt: Đọc văn bản đang chọn"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "codexHoaimy.readSelection",
+          "when": "editorHasSelection",
+          "group": "navigation@100"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Giọng Việt cho Codex",
+      "properties": {
+        "codexHoaimy.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Tự đọc phản hồi mới khi Codex hoàn tất. Nội dung cần đọc được gửi tới Microsoft để tạo giọng nói."
+        },
+        "codexHoaimy.voice": {
+          "type": "string",
+          "default": "vi-VN-HoaiMyNeural",
+          "enum": [
+            "vi-VN-HoaiMyNeural",
+            "vi-VN-NamMinhNeural",
+            "en-US-EmmaMultilingualNeural"
+          ],
+          "enumDescriptions": [
+            "Hoài Mỹ — nữ, tiếng Việt",
+            "Nam Minh — nam, tiếng Việt",
+            "Emma — nữ, đa ngôn ngữ"
+          ],
+          "scope": "application",
+          "description": "Giọng đọc."
+        },
+        "codexHoaimy.rate": {
+          "type": "integer",
+          "default": -5,
+          "minimum": -50,
+          "maximum": 100,
+          "scope": "application",
+          "description": "Thay đổi tốc độ (%). 0 là bình thường; -10 chậm hơn; +20 nhanh hơn."
+        },
+        "codexHoaimy.pitch": {
+          "type": "integer",
+          "default": 0,
+          "minimum": -50,
+          "maximum": 50,
+          "scope": "application",
+          "description": "Thay đổi cao độ (Hz)."
+        },
+        "codexHoaimy.volume": {
+          "type": "integer",
+          "default": 100,
+          "minimum": 0,
+          "maximum": 100,
+          "scope": "application",
+          "description": "Âm lượng phát (0–100%). Áp dụng ngay khi đang đọc."
+        },
+        "codexHoaimy.skipCode": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Bỏ qua các khối mã khi đọc."
+        },
+        "codexHoaimy.readScope": {
+          "type": "string",
+          "default": "workspace",
+          "enum": [
+            "workspace",
+            "all"
+          ],
+          "scope": "application",
+          "description": "Chỉ đọc phiên Codex thuộc thư mục làm việc hiện tại, hoặc tất cả phiên chính trên máy."
+        },
+        "codexHoaimy.sessionsDirectory": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Đường dẫn thư mục sessions của Codex. Để trống dùng CODEX_HOME/sessions hoặc ~/.codex/sessions. Có thể bắt đầu bằng ~/ trên mọi hệ điều hành."
+        },
+        "codexHoaimy.retryCount": {
+          "type": "integer",
+          "default": 3,
+          "minimum": 0,
+          "maximum": 5,
+          "scope": "application",
+          "description": "Số lần thử lại sau lần tạo giọng đầu tiên bị lỗi."
+        },
+        "codexHoaimy.fallbackVoice": {
+          "type": "string",
+          "default": "en-US-EmmaMultilingualNeural",
+          "enum": [
+            "",
+            "en-US-EmmaMultilingualNeural"
+          ],
+          "enumDescriptions": [
+            "Không dùng giọng dự phòng",
+            "Emma — nữ, đa ngôn ngữ"
+          ],
+          "scope": "application",
+          "description": "Giọng dự phòng khi giọng chính liên tục lỗi."
+        },
+        "codexHoaimy.proxy": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "HTTP proxy tùy chọn (ví dụ http://127.0.0.1:7890). Để trống dùng proxy từ biến môi trường nếu có."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "test": "node test/core.test.js",
+    "test:host": "node scripts/test-host.js",
+    "vscode:prepublish": "npm run build",
+    "package": "vsce package --no-dependencies --allow-missing-repository --out releases/codex-hoaimy-0.1.0.vsix"
+  },
+  "dependencies": {
+    "https-proxy-agent": "7.0.6",
+    "node-edge-tts": "1.2.12",
+    "ws": "8.18.3"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.0",
+    "esbuild": "^0.25.0",
+    "playwright-core": "^1.65.1"
+  }
+}

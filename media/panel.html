@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{CSP_SOURCE}}; script-src 'nonce-{{NONCE}}'; media-src blob:; img-src {{CSP_SOURCE}};">
+  <link href="{{STYLE_URI}}" rel="stylesheet">
+  <title>Giọng Việt cho Codex</title>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">CÙNG BẠN LÀM VIỆC</div>
+      <h1>Để Codex cất lời<span class="accent">.</span></h1>
+      <p class="intro">Giọng Việt tự nhiên, theo nhịp của bạn.</p>
+    </header>
+    <section class="player card" aria-label="Trình phát">
+      <div class="player-top"><span id="voiceBadge" class="badge">HOÀI MỸ · NỮ</span><span class="live"><i id="statusDot"></i><span id="stateName">Sẵn sàng</span></span></div>
+      <div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <p id="detail" role="status" aria-live="polite">Sẵn sàng đọc phản hồi mới.</p>
+      <div class="actions"><button id="test" class="primary">▶ Nghe thử</button><button id="pause" disabled>Ⅱ Tạm dừng</button><button id="stop" disabled>■ Dừng</button><button id="replay" title="Đọc lại phản hồi gần nhất">↻ Đọc lại</button></div>
+    </section>
+    <section class="card controls" aria-label="Thiết lập giọng">
+      <div class="row switch-row"><div><h2>Tự đọc phản hồi</h2><p>Đọc khi Codex trả lời xong.</p></div><label class="switch"><input id="enabled" type="checkbox" checked aria-label="Tự đọc phản hồi Codex"><span></span></label></div>
+      <div class="divider"></div>
+      <label class="field-label" for="voice">GIỌNG ĐỌC</label>
+      <select id="voice"><option value="vi-VN-HoaiMyNeural">Hoài Mỹ — nữ, tiếng Việt</option><option value="vi-VN-NamMinhNeural">Nam Minh — nam, tiếng Việt</option><option value="en-US-EmmaMultilingualNeural">Emma — nữ, đa ngôn ngữ</option></select>
+      <div class="slider-group"><label for="rate">Tốc độ <output id="rateValue">−5%</output></label><input id="rate" type="range" min="-50" max="100" step="1" value="-5"><div class="range-caption"><span>Chậm hơn</span><button id="resetRate" class="text-button">Bình thường</button><span>Nhanh hơn</span></div></div>
+      <div class="slider-group"><label for="pitch">Cao độ <output id="pitchValue">0 Hz</output></label><input id="pitch" type="range" min="-50" max="50" step="1" value="0"><div class="range-caption"><span>Trầm</span><button id="resetPitch" class="text-button">Mặc định</button><span>Cao</span></div></div>
+      <div class="slider-group"><label for="volume">Âm lượng <output id="volumeValue">100%</output></label><input id="volume" type="range" min="0" max="100" step="1" value="100"><div class="range-caption"><span>Im lặng</span><span>Tối đa</span></div></div>
+      <p class="hint">Âm lượng đổi ngay. Tốc độ và cao độ áp dụng từ đoạn đọc tiếp theo.</p>
+      <label class="check"><input id="skipCode" type="checkbox" checked> Bỏ qua khối mã</label>
+      <label class="check"><input id="fallback" type="checkbox" checked> Dùng giọng nữ Emma khi giọng chính lỗi</label>
+      <label class="field-label" for="readScope">PHẠM VI TỰ ĐỌC</label>
+      <select id="readScope"><option value="workspace">Thư mục làm việc hiện tại</option><option value="all">Tất cả phiên Codex chính trên máy</option></select>
+      <details><summary>Thiết lập nâng cao</summary><p class="hint">Thư mục sessions của Codex</p><div class="folder-row"><code id="sessionsPath">Tự động: ~/.codex/sessions</code><button id="folder">Chọn…</button></div><button id="settings" class="text-button">Mở đầy đủ cài đặt: số lần thử lại, proxy… ↗</button></details>
+    </section>
+    <section class="card transcript"><div class="section-title"><h2 id="transcriptLabel">Chưa có phản hồi</h2><span>CHỈ LƯU TRONG PHIÊN NÀY</span></div><p id="transcript">Phản hồi mới sẽ xuất hiện ở đây khi được đọc.</p></section>
+    <section class="card custom"><h2>Đọc một đoạn bất kỳ</h2><label class="sr-only" for="customText">Văn bản cần đọc</label><textarea id="customText" rows="3" maxlength="40000" placeholder="Dán tiếng Việt vào đây để nghe thử…"></textarea><button id="readCustom">▶ Đọc đoạn này</button></section>
+    <footer>Không cần API key · Cần Internet<br>Văn bản được đọc gửi tới dịch vụ Microsoft. Không gửi prompt hay nhật ký công cụ.</footer>
+  </main>
+  <script nonce="{{NONCE}}" src="{{SCRIPT_URI}}"></script>
+</body>
+</html>

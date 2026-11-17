@@ -1,0 +1,9 @@
+node_modules/
+dist/
+releases/
+.test-profile/
+*.mp3
+*.log
+.env
+.env.*
+__pycache__/
