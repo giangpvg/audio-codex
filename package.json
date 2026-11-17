@@ -171,7 +171,7 @@
   },
   "scripts": {
     "build": "node scripts/build.js",
-    "test": "node test/core.test.js",
+    "test": "node --test test/*.test.js",
     "test:host": "node scripts/test-host.js",
     "vscode:prepublish": "npm run build",
     "package": "vsce package --no-dependencies --allow-missing-repository --out releases/codex-hoaimy-0.1.0.vsix"

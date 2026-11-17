@@ -114,6 +114,8 @@ qua SSH và không hỗ trợ giả lập microphone.
   thức. Có thử lại, nút đọc lại và giọng dự phòng. Không cam kết dịch vụ
   luôn có sẵn hay không có giới hạn.
 - Nếu IDE chặn tự phát âm thanh lần đầu, bấm **Tiếp tục** trong bảng.
+  Trình phát giữ cùng AudioContext trong phiên để các đoạn và phản hồi sau
+  dùng lại quyền đã cho phép. Đóng hẳn bảng hoặc Reload IDE có thể cần bấm lại.
 - Tương thích phụ thuộc định dạng session log Codex hiện tại. Nếu Codex đổi
   định dạng log, extension có thể cần cập nhật.
 

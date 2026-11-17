@@ -2,9 +2,12 @@
 
 const vscode = acquireVsCodeApi();
 const byId = id => document.getElementById(id);
-let audio;
-let objectUrl;
+let audioContext;
+let gain;
+let source;
 let playbackId;
+let resumeAttempt = 0;
+let resumeTimer;
 let settings = {};
 
 function post(type, extra = {}) { vscode.postMessage({ type, ...extra }); }
@@ -12,26 +15,53 @@ function label(key, value) {
   byId(`${key}Value`).textContent = key === 'pitch' ? `${value > 0 ? '+' : ''}${value} Hz` : `${key === 'rate' && value > 0 ? '+' : ''}${value}%`;
 }
 function stopAudio() {
-  if (audio) { audio.onended = null; audio.onerror = null; audio.pause(); audio.removeAttribute('src'); audio.load(); }
-  audio = undefined;
-  if (objectUrl) URL.revokeObjectURL(objectUrl);
-  objectUrl = undefined;
+  resumeAttempt++;
+  clearTimeout(resumeTimer);
+  if (source) { source.onended = null; source.stop(); source.disconnect(); }
+  source = undefined;
   playbackId = undefined;
   byId('pause').disabled = true;
 }
+function setVolume(value) {
+  if (gain) gain.gain.value = Math.max(0, Math.min(1, value / 100));
+}
+function audioError(id) {
+  if (id !== playbackId) return;
+  stopAudio();
+  post('audioError', { id });
+}
 async function resumeAudio() {
-  if (!audio) return;
+  if (!source) return;
+  const id = playbackId;
+  const attempt = ++resumeAttempt;
+  clearTimeout(resumeTimer);
   try {
-    await audio.play();
+    // A locked AudioContext may leave resume() pending until a real click.
+    resumeTimer = setTimeout(() => {
+      if (attempt === resumeAttempt && audioContext.state !== 'running') {
+        byId('pause').textContent = '▶ Tiếp tục';
+        post('blocked', { id });
+      }
+    }, 200);
+    await audioContext.resume();
+    if (attempt !== resumeAttempt || id !== playbackId) return;
     byId('pause').textContent = 'Ⅱ Tạm dừng';
-    post('resumed');
-  } catch { byId('pause').textContent = '▶ Tiếp tục'; post('blocked'); }
+    post('resumed', { id });
+  } catch (error) {
+    if (attempt !== resumeAttempt || id !== playbackId) return;
+    if (error.name === 'NotAllowedError') {
+      byId('pause').textContent = '▶ Tiếp tục';
+      post('blocked', { id });
+    } else audioError(id);
+  } finally {
+    if (attempt === resumeAttempt) clearTimeout(resumeTimer);
+  }
 }
 
 for (const key of ['rate', 'pitch', 'volume']) {
   byId(key).addEventListener('input', event => {
     label(key, Number(event.target.value));
-    if (key === 'volume' && audio) audio.volume = Number(event.target.value) / 100;
+    if (key === 'volume') setVolume(Number(event.target.value));
   });
   byId(key).addEventListener('change', event => post('setting', { key, value: Number(event.target.value) }));
 }
@@ -41,10 +71,16 @@ byId('fallback').addEventListener('change', event => post('setting', { key: 'fal
 for (const [id, key, value] of [['resetRate', 'rate', 0], ['resetPitch', 'pitch', 0]]) byId(id).addEventListener('click', () => post('setting', { key, value }));
 for (const type of ['test', 'stop', 'replay', 'settings', 'folder']) byId(type).addEventListener('click', () => post(type));
 byId('readCustom').addEventListener('click', () => post('read', { text: byId('customText').value }));
-byId('pause').addEventListener('click', () => {
-  if (!audio) return;
-  if (audio.paused) void resumeAudio();
-  else { audio.pause(); byId('pause').textContent = '▶ Tiếp tục'; post('paused'); }
+byId('pause').addEventListener('click', async () => {
+  if (!source) return;
+  if (audioContext.state !== 'running') { void resumeAudio(); return; }
+  const id = playbackId;
+  try {
+    await audioContext.suspend();
+    if (id !== playbackId) return;
+    byId('pause').textContent = '▶ Tiếp tục';
+    post('paused', { id });
+  } catch { audioError(id); }
 });
 
 window.addEventListener('message', async ({ data: message }) => {
@@ -55,7 +91,7 @@ window.addEventListener('message', async ({ data: message }) => {
     for (const key of ['voice', 'readScope']) byId(key).value = settings[key];
     byId('fallback').checked = !!settings.fallbackVoice;
     byId('sessionsPath').textContent = settings.sessionsDirectory || 'Tự động: ~/.codex/sessions';
-    if (audio) audio.volume = settings.volume / 100;
+    setVolume(settings.volume);
     const status = message.status;
     document.body.dataset.state = status.state;
     byId('stateName').textContent = ({ idle: settings.enabled ? 'Tự đọc đang bật' : 'Tự đọc đã tắt', generating: 'Đang tạo giọng', playing: 'Đang đọc', paused: 'Tạm dừng', error: 'Cần kiểm tra' })[status.state] || 'Sẵn sàng';
@@ -67,15 +103,29 @@ window.addEventListener('message', async ({ data: message }) => {
     if (status.label) byId('transcriptLabel').textContent = status.label;
   } else if (message.type === 'play') {
     stopAudio();
-    playbackId = message.id;
-    const bytes = Uint8Array.from(atob(message.audio), char => char.charCodeAt(0));
-    objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }));
-    audio = new Audio(objectUrl);
-    audio.volume = Math.max(0, Math.min(1, message.volume / 100));
-    audio.onended = () => { const id = playbackId; stopAudio(); post('ended', { id }); };
-    audio.onerror = () => { const id = playbackId; stopAudio(); post('audioError', { id }); };
-    byId('pause').disabled = false;
-    await resumeAudio();
+    const id = playbackId = message.id;
+    try {
+      if (!audioContext) {
+        audioContext = new AudioContext();
+        gain = audioContext.createGain();
+        gain.connect(audioContext.destination);
+      }
+      setVolume(message.volume);
+      const bytes = Uint8Array.from(atob(message.audio), char => char.charCodeAt(0));
+      const buffer = await audioContext.decodeAudioData(bytes.buffer);
+      if (id !== playbackId) return;
+      source = audioContext.createBufferSource();
+      source.buffer = buffer;
+      source.connect(gain);
+      source.onended = () => {
+        if (id !== playbackId) return;
+        stopAudio();
+        post('ended', { id });
+      };
+      source.start();
+      byId('pause').disabled = false;
+      void resumeAudio();
+    } catch { audioError(id); }
   } else if (message.type === 'stop') stopAudio();
 });
 

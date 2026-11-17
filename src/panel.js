@@ -53,9 +53,15 @@ class VoicePanel {
         case 'audioError':
           if (message.id === this.playback?.id) this.finishPlayback(new Error('Không phát được MP3 trong IDE. Hãy thử mở lại bảng điều khiển.'));
           break;
-        case 'paused': this.update({ state: 'paused', detail: 'Đang tạm dừng.' }); break;
-        case 'resumed': this.update({ state: 'playing', detail: 'Đang đọc…' }); break;
-        case 'blocked': this.update({ state: 'paused', detail: 'Bấm Tiếp tục để cho phép phát âm thanh.' }); break;
+        case 'paused':
+          if (message.id === this.playback?.id) this.update({ state: 'paused', detail: 'Đang tạm dừng.' });
+          break;
+        case 'resumed':
+          if (message.id === this.playback?.id) this.update({ state: 'playing', detail: 'Đang đọc…' });
+          break;
+        case 'blocked':
+          if (message.id === this.playback?.id) this.update({ state: 'paused', detail: 'Bấm Tiếp tục một lần để cho phép tự đọc trong phiên này.' });
+          break;
       }
     } catch (error) { this.callbacks.error(error); }
   }

@@ -47,6 +47,8 @@ async function main() {
     `--remote-debugging-port=${port}`, workspace,
   ], { env: environment, stdio: ['ignore', 'pipe', 'pipe'] });
   const logs = [];
+  const diagnosticLogs = () => logs.join('').split('\n')
+    .filter(line => !/(?:csrf|#t=|api[_-]?key)/i.test(line)).join('\n').slice(-6000);
   child.stdout.on('data', data => { logs.push(data.toString()); if (data.toString().includes('HOST PASS')) process.stdout.write(data); });
   child.stderr.on('data', data => logs.push(data.toString()));
   let browser;
@@ -54,7 +56,7 @@ async function main() {
   try {
     await waitFor(async () => {
       try { return await fs.stat(path.join(temporary, 'host-ready')); }
-      catch { if (child.exitCode !== null) throw new Error(`VS Code exited early: ${logs.join('').slice(-5000)}`); return false; }
+      catch { if (child.exitCode !== null) throw new Error(`VS Code exited early: ${diagnosticLogs()}`); return false; }
     }, 45000);
     browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`);
     frame = await waitFor(async () => {
@@ -62,6 +64,35 @@ async function main() {
         try { if (await candidate.locator('#rate').count()) return candidate; } catch { /* Frame is still loading. */ }
       }
     });
+    // Playwright evaluate/locator reads can grant userGesture and hide autoplay bugs.
+    let cdp, target = frame;
+    while (!cdp) {
+      try { cdp = await browser.contexts()[0].newCDPSession(target); }
+      catch (error) {
+        const parent = target.parentFrame();
+        if (!parent) throw error;
+        target = parent;
+      }
+    }
+    const contexts = [];
+    cdp.on('Runtime.executionContextCreated', event => contexts.push(event.context));
+    await cdp.send('Runtime.enable');
+    let panelContext;
+    for (const context of contexts) {
+      const result = await cdp.send('Runtime.evaluate', {
+        expression: "!!document.getElementById('rate')", contextId: context.id,
+        returnByValue: true, userGesture: false,
+      });
+      if (result.result.value) { panelContext = context.id; break; }
+    }
+    assert.ok(panelContext, 'Player execution context is available');
+    const readPanel = async expression => {
+      const result = await cdp.send('Runtime.evaluate', {
+        expression, contextId: panelContext, returnByValue: true, userGesture: false,
+      });
+      assert.ok(!result.exceptionDetails, 'Player state can be read without user activation');
+      return result.result.value;
+    };
     assert.equal(await frame.locator('#rate').inputValue(), '-12');
     assert.equal(await frame.locator('#pitch').inputValue(), '4');
     assert.equal(await frame.locator('#volume').inputValue(), '55');
@@ -82,29 +113,42 @@ async function main() {
       record('event_msg', { type: 'agent_message', phase: 'commentary', message: 'Do not speak commentary' }) +
       record('event_msg', { type: 'task_complete', turn_id: 'ui-test', last_agent_message: 'Xin chào bạn. Extension giọng Việt đã sẵn sàng.' }));
     await frame.locator('#transcript').filter({ hasText: 'Extension giọng Việt đã sẵn sàng.' }).waitFor({ timeout: 15000 });
-    await waitFor(async () => frame.evaluate(() => document.body.dataset.state === 'playing' || document.body.dataset.state === 'paused'), 120000);
-    if (await frame.evaluate(() => document.body.dataset.state === 'paused')) {
+    await waitFor(() => frame.locator('#pause').isEnabled(), 120000);
+    await wait(300); // Allow the autoplay permission result to reach the host.
+    await waitFor(() => readPanel("['playing', 'paused'].includes(document.body.dataset.state)"), 120000);
+    if (await readPanel("document.body.dataset.state === 'paused'")) {
       await frame.locator('#pause').click();
-      await waitFor(async () => frame.evaluate(() => document.body.dataset.state === 'playing'));
+      await waitFor(() => readPanel("document.body.dataset.state === 'playing'"));
     }
     await frame.locator('#pause').click();
-    await waitFor(async () => frame.evaluate(() => document.body.dataset.state === 'paused'));
+    await waitFor(() => readPanel("document.body.dataset.state === 'paused'"));
     await frame.locator('#pause').click();
-    await waitFor(async () => frame.evaluate(() => document.body.dataset.state === 'playing'));
+    await waitFor(() => readPanel("document.body.dataset.state === 'playing'"));
     await frame.locator('main').screenshot({ path: path.join(root, 'releases', 'extension-preview.png') });
-    await waitFor(async () => (await frame.locator('#detail').innerText()) === 'Đã đọc xong.', 45000);
+    await waitFor(async () => (await readPanel("document.getElementById('detail').textContent")) === 'Đã đọc xong.', 45000);
+    await frame.page().keyboard.press('Control+Shift+e');
+    await wait(6000); // Let transient activation expire while focus is outside the player.
+    // A second reply must finish without another permission/resume click.
+    await fs.appendFile(session, record('event_msg', {
+      type: 'task_complete', turn_id: 'ui-test-next', last_agent_message: 'Lượt tiếp theo tự đọc.' }));
+    await waitFor(() => readPanel("document.getElementById('transcript').textContent.includes('Lượt tiếp theo tự đọc.')"), 15000);
+    await waitFor(async () => {
+      const detail = await readPanel("document.getElementById('detail').textContent");
+      assert.ok(!detail.includes('Bấm Tiếp tục'), 'The next reply must not ask for permission again');
+      return detail === 'Đã đọc xong.';
+    }, 45000);
     // Verify code/content cannot inject markup into the transcript panel.
     await frame.locator('#customText').fill('<img src=x onerror=alert(1)>');
     assert.equal(await frame.locator('#customText').inputValue(), '<img src=x onerror=alert(1)>');
     await fs.writeFile(path.join(temporary, 'ui-result.json'), JSON.stringify({ ok: true }));
     await waitFor(() => child.exitCode !== null, 15000);
-    assert.equal(child.exitCode, 0, logs.join('').slice(-5000));
-    console.log('UI PASS: sliders, auto-read toggle, session detection, MP3 playback, pause/resume, screenshot');
+    assert.equal(child.exitCode, 0, diagnosticLogs());
+    console.log('UI PASS: sliders, auto-read toggle, session detection, MP3 playback, pause/resume, next reply autoplay, screenshot');
     console.log(`Screenshot: ${path.join(root, 'releases', 'extension-preview.png')}`);
   } catch (error) {
     if (frame) await frame.page().screenshot({ path: path.join(root, 'releases', 'test-failure.png') }).catch(() => {});
     await fs.writeFile(path.join(temporary, 'ui-result.json'), JSON.stringify({ ok: false, error: error.message }));
-    console.error(logs.join('').slice(-6000));
+    console.error(diagnosticLogs());
     console.error(`Diagnostic profile: ${temporary}`);
     throw error;
   } finally {
