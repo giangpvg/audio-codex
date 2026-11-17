@@ -33,6 +33,30 @@ test('Markdown speaks labels and skips closed and unfinished code fences', () =>
   assert.match(spokenText('```\nprint(1)\n```', false), /print\(1\)/);
 });
 
+test('speech omits filenames and paths in inline code and Markdown link labels', () => {
+  assert.equal(spokenText('Cài lại file `codex-hoaimy/releases/codex-hoaimy-0.1.0.vsix`, rồi chạy **Developer: Reload Window**.'),
+    'Cài lại file, rồi chạy Developer: Reload Window.');
+  assert.equal(spokenText('Đã sửa [speech.js](./src/speech.js:120), xem [hướng dẫn](./README.md).'),
+    'Đã sửa xem hướng dẫn.');
+  assert.equal(spokenText('Mở `Mẫu báo cáo.docx` và `src/components` để kiểm tra.'),
+    'Mở và để kiểm tra.');
+  assert.equal(spokenText('Xem **app.py**, _app.ts_ và `media/` để sửa.'), 'Xem và để sửa.');
+});
+
+test('speech omits bare filenames, dotfiles and explicit paths', () => {
+  for (const reference of ['app.ts', 'report.pdf', 'src/app.py:12:4', '.env.local', 'README', 'Dockerfile', './src', '../media', '~/sessions', '/tmp/sessions', 'C:\\project\\app.js']) {
+    assert.equal(spokenText(`Đã sửa ${reference}, xong.`), 'Đã sửa xong.', reference);
+  }
+});
+
+test('file filtering preserves prose, commands, numbers and product names', () => {
+  const text = 'Dùng Node.js, Next.js và Vue.js phiên bản v1.2.3; mất 2.5 giây, đọc/ghi 10/20 mục.';
+  assert.equal(spokenText(text), text);
+  assert.equal(spokenText('Chạy `npm test` rồi **Reload Window**.'), 'Chạy npm test rồi Reload Window.');
+  assert.equal(spokenText('Xem https://example.com/help và example.com.'), 'Xem liên kết và example.com.');
+  assert.equal(spokenText('Sửa `app.js` rồi chạy `npm test`.', false), 'Sửa rồi chạy npm test.');
+});
+
 test('chunking preserves words, punctuation and Unicode without excessive requests', () => {
   const text = Array.from({ length: 80 }, () => 'Xin chào bạn. 🌻').join(' ');
   const chunks = speechChunks(text, 130);

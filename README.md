@@ -61,6 +61,10 @@ Nếu đổi tốc độ, cao độ hoặc giọng, đoạn đã chuẩn bị v�
 bấm **Dừng** rồi **Đọc lại** để áp dụng ngay. Nút **Dừng** hủy cả đoạn đang
 phát và đoạn đang tạo.
 
+Giọng đọc tự bỏ qua tên file thông dụng và đường dẫn, kể cả trong inline code
+hoặc nhãn liên kết. Phần chữ hiển thị vẫn giữ nguyên; tên lệnh như **Reload
+Window** vẫn được đọc.
+
 Nút **Tạm dừng / Tiếp tục**, **Dừng**, **Đọc lại**, **Nghe thử** đều nằm trên
 bảng điều khiển. Có ô dán văn bản để đọc tùy ý và mục **Đọc văn bản đang
 chọn** trong menu chuột phải của editor. Các lệnh đều bắt đầu bằng
